@@ -12,7 +12,9 @@ class _HomePageState extends State<HomePage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  final List<Map<String, dynamic>> _contactList = [];
+  final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _contactList = [];
+  String searchTerm = "";
 
   void _nofifyUser(BuildContext context, String message) {
     ScaffoldMessenger.of(
@@ -30,6 +32,8 @@ class _HomePageState extends State<HomePage> {
         "isFavourite": false,
       };
 
+      // print(person);
+
       setState(() {
         _contactList.add(person);
       });
@@ -41,30 +45,47 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _toggleFavourite(int id) {
+  void _toggleFavourite(int selectedId) {
     // print(_contactList[id]);
     setState(() {
-      _contactList[id]["isFavourite"] = !_contactList[id]["isFavourite"];
+      // _contactList[id]["isFavourite"] = !_contactList[id]["isFavourite"];
+
+      Map<String, dynamic> selectedContact = _contactList.firstWhere(
+        (contact) => contact["id"] == selectedId,
+      );
+      selectedContact["isFavourite"] = !selectedContact["isFavourite"];
     });
     // print(_contactList[id]);
   }
 
-  getFavouriteContacts() {
+  dynamic getFavouriteContacts() {
     List<Map<String, dynamic>> favouriteContacts =
         _contactList.where((contact) => contact["isFavourite"]).toList();
 
     int countFavouriteContacts = favouriteContacts.length;
 
     return {
-      "favouriteContacts": favouriteContacts, // []
-      "countFavouriteContacts": countFavouriteContacts, // 2
+      "favouriteContacts": favouriteContacts,
+      "countFavouriteContacts": countFavouriteContacts,
     };
+  }
+
+  void _deleteContact(int selectedId) {
+    setState(() {
+      List<Map<String, dynamic>> remainingContacts =
+          _contactList.where((contact) => contact["id"] != selectedId).toList();
+
+      _contactList = [...remainingContacts];
+    });
+
+    _nofifyUser(context, "Contact has been deleted successfully.");
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -74,6 +95,27 @@ class _HomePageState extends State<HomePage> {
 
     // print(favouriteContacts["countFavouriteContacts"]);
     // print(favouriteContacts["favouriteContacts"]);
+
+    // print(searchTerm);
+
+    List<Map<String, dynamic>> filteredContacts =
+        searchTerm != ""
+            ? _contactList.where((contact) {
+              // print(contact);
+              if (contact["username"].toLowerCase().contains(
+                    searchTerm.toLowerCase(),
+                  ) ||
+                  contact["useremail"].toLowerCase().contains(
+                    searchTerm.toLowerCase(),
+                  )) {
+                return true;
+              }
+              return false;
+            }).toList()
+            : _contactList;
+
+    // print(filteredContacts);
+    print(searchTerm);
 
     return DefaultTabController(
       length: 3,
@@ -168,14 +210,46 @@ class _HomePageState extends State<HomePage> {
               ),
 
               // For all contacts
-              ListView.builder(
-                itemCount: _contactList.length,
-                itemBuilder: (context, index) {
-                  return ContactCard(
-                    person: _contactList[index],
-                    toggleFavourite: _toggleFavourite,
-                  );
-                },
+              Column(
+                spacing: 20,
+                children: [
+                  TextField(
+                    onChanged: (value) {
+                      setState(() {
+                        searchTerm = value;
+                      });
+                    },
+
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      suffixIcon: IconButton(
+                        onPressed: () {
+                          setState(() {
+                            searchTerm = "";
+                            _searchController.clear();
+                          });
+                        },
+                        icon: Icon(Icons.close),
+                      ),
+                      hintText: "Search...",
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filteredContacts.length,
+                      itemBuilder: (context, index) {
+                        return ContactCard(
+                          person: filteredContacts[index],
+                          toggleFavourite: _toggleFavourite,
+                          deleteContact: _deleteContact,
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
 
               // For favourite contacts
@@ -197,6 +271,7 @@ class _HomePageState extends State<HomePage> {
                   return ContactCard(
                     person: favouriteContacts["favouriteContacts"][index],
                     toggleFavourite: _toggleFavourite,
+                    deleteContact: _deleteContact,
                   );
                 },
               ),
